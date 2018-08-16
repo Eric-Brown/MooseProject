@@ -1,0 +1,573 @@
+# MooseProjectMultipleRegression using simulation data
+
+# run 1315 has random noise added corresponding to 80% confidence data
+rawData<-read.table("D:\\Documents\\All the Code\\R\\MooseProject\\Simulated Data\\regress_run3724.txt",header=T)
+attach(rawData)
+mooseData <-rawData
+attach(mooseData)
+
+head(mooseData)
+names(mooseData)
+head (mooseData$Year)
+
+# form data frame for the multiple regression
+M1 <- mooseData$mYear1[c(1:50)] #explanatory variable
+length(M1)
+M2 <- mooseData$mYear2[c(1:50)] #explanatory variable
+length(M2)
+M3 <- mooseData$mYear3[c(1:50)] #explanatory variable
+length(M3)
+M4 <- mooseData$mYear4[c(1:50)] #explanatory variable
+length(M4)
+W <- mooseData$Wolves[c(1:50)] #explanatory variable
+M<-mooseData$Moose[c(1:50)] # response varia ble
+mooseData1 <-as.data.frame(cbind(M,M1,M2,M3,M4,W) ,row.names= NULL)#create data frame}
+
+TM1 <- mooseData$mYear1[c(51:nrow(mooseData))]
+TM2 <- mooseData$mYear2[c(51:nrow(mooseData))] 
+TM3 <- mooseData$mYear3[c(51:nrow(mooseData))] 
+TM4 <- mooseData$mYear4[c(51:nrow(mooseData))]
+TW <- mooseData$Wolves[c(51:nrow(mooseData))] 
+TM<-mooseData$Moose[c(51:nrow(mooseData))] 
+pMooseData<-data.frame(M1 = TM1, M2 = TM2, M3 = TM3, M4 = TM4, W = TW)
+
+evaluateModel<-function(inModel)
+{
+	predictions<-predict(inModel, pMooseData)
+	error = abs(predictions - TM)
+	pError = (error/TM) * 100
+	mean(pError)
+}
+
+length(mooseData1)
+head(mooseData1)
+attach(mooseData1)
+
+pairs(mooseData1,panel=panel.smooth)
+
+library(tree)
+model =tree(M~.,data=mooseData1)
+par(mfrow=c(1,1))
+plot(model, main="Tree Model")
+text(model)
+
+
+# most general model
+model1 <- lm(M~M1*M2*M3*M4*W+ I(M1^2)+ I(M2^2)+ I(M3^2)+ I(M4^2))
+summary(model1)
+par(mfrow=c(2,2))  # display 4 plots  in 2 rows, 2  columns
+plot(model1)
+par(mfrow = c(1, 1)) #return plot layout to default
+
+# the five-way interaction M1:M2:M3:M4:Wis not significant -- remove it
+model2 <- update(model1,~.-M1:M2:M3:M4:W)
+summary(model2)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~Removal of 4-Way Interactions~~~~~~~~~~~~~~
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model3 <- update(model2,~.-M1:M3:M4:W)
+summary(model3)
+evaluateModel(model3)
+
+model4 <- update(model3,~.-M1:M2:M4:W)
+summary(model4)
+evaluateModel(model4)
+
+model5 <- update(model4,~.-M1:M2:M3:M4)
+anova(model5, model4)
+summary(model5)
+evaluateModel(model5)
+
+model6 <- update(model5,~.-M1:M2:M3:W)
+anova(model5,model6)
+anova(model1, model6)
+summary(model6)
+evaluateModel(model6)
+
+model7 <- update(model6,~.-M2:M3:M4:W)
+anova(model6,model7)
+summary(model7)
+evaluateModel(model7)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~Removal of 3-Way Interactions~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+model8 <- update(model7,~.-M2:M4:W)
+summary(model8)
+evaluateModel(model8) #accuracy went down here.
+
+model9 <- update(model8,~.-M1:M3:M4)
+anova(model8,model9)
+summary(model9)
+
+par(mfrow=c(2,2))  # display 4 plots  in 2 rows, 2  columns
+plot(model9)
+par(mfrow = c(1, 1)) #return plot layout to default
+
+model10 <- update(model9,~.-M1:M2:M3 )
+anova(model9,model10)
+summary(model10)
+
+model11 <- update(model10,~.-M1:M2:M4 )
+anova(model10, model11)
+summary(model11)
+
+#testing adding back in terms that caused adjusted RS to go down.
+model12a<-update(model11, ~.+M1:M2:M3:M4)
+anova(model11, model12a)
+summary(model12a)
+
+model12b<-update(model11, ~.+M1:M2:M3:W)
+anova(model11, model12b)
+summary(model12b)
+
+model12c<-update(model11, ~.+M2:M3:M4:W)
+anova(model11, model12c)
+summary(model12c)
+
+model13<-update(model11, ~.-M2:M3:W)
+anova(model11, model13)
+summary(model13)
+
+model14<-update(model13, ~.-M1:M3:W)
+anova(model13, model14)
+summary(model14)
+
+#removal of term causes RS to go down
+#~~~~~Possible branch here~~~~~
+model15<-update(model14, ~.-M3:M4:W)
+anova(model14, model15)
+summary(model15)
+
+model16<-update(model15, ~.-M1:M4:W)
+anova(model16, model15)
+summary(model16)
+
+model17<-update(model16, ~.-M2:M3:M4)
+anova(model16, model17)
+summary(model17)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~Removal of 2-Way Interactions~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch A~~~~~~~~~~~~~~~~~~~~~~~
+#Difference is that I ignore square terms until 2ways are Sig
+model18a<-update(model17, ~.-M2:M4)
+anova(model17, model18a)
+summary(model18a)
+
+par(mfrow=c(2,2))  # display 4 plots  in 2 rows, 2  columns
+plot(model18a)
+
+model19a<-update(model18a, ~.-M3:M4)
+anova(model18a, model19a)
+summary(model19a)
+
+model20a<-update(model19a, ~.-M1:M3)
+anova(model19a, model20a)
+summary(model20a)
+
+model21a<-update(model20a, ~.-M2:M3)
+anova(model20a, model21a)
+summary(model21a)
+
+model22a<-update(model21a, ~.-M1:M4)
+anova(model21a, model22a)
+summary(model22a)
+
+model23a<-update(model22a, ~.-M4:W)
+anova(model22a, model23a)
+summary(model23a)
+
+model24a<-update(model23a, ~.-M1:M2)
+anova(model23a, model24a)
+summary(model24a)
+
+model25a<-update(model24a, ~.-M2:W)
+anova(model24a, model25a)
+summary(model25a)
+
+model26a<-update(model25a, ~.-M1:M2:W)
+anova(model25a, model26a)
+summary(model26a)
+
+model27a<-update(model26a, ~.-M1:W)
+anova(model26a, model27a)
+summary(model27a)
+
+model28a<-update(model27a, ~.-I(M2^2))
+anova(model27a, model28a)
+summary(model28a)
+
+model29a<-update(model28a, ~.-I(M1^2))
+anova(model28a, model29a)
+summary(model29a)
+
+model30a<-update(model29a, ~.-I(M4^2))
+anova(model29a, model30a)
+summary(model30a)
+
+model31a<-update(model30a, ~.-I(M3^2))
+anova(model30a, model31a)
+summary(model31a)
+#Conclusion:This method is terrible. Don't do it.
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~Testing Addition of Terms~~~~~~~~~~~~~~~~~~
+
+model32a<-update(model31a, ~.+M1:M2:M3:M4)
+anova(model31a, model32a)
+summary(model32a)
+
+#Added Term is significant
+model33a<-update(model31a, ~.+M1:M2:M3:W)
+anova(model31a, model33a)
+summary(model33a)
+
+model34a<-update(model33a, ~.+M2:M3:M4:W)
+anova(model33a, model34a)
+summary(model34a)
+
+model35a<-update(model33a, ~.+M1:M4:W)
+anova(model33a, model35a)
+summary(model35a)
+
+model36a<-update(model33a, ~.+M3:M4:W)
+anova(model33a, model36a)
+summary(model36a)
+
+model37a<-update(model33a, ~.+M2:M3:M4)
+anova(model33a, model37a)
+summary(model37a)
+
+#Addition of terms seems significant
+model38a<-update(model33a, ~.+M1:M4)
+anova(model33a, model38a)
+summary(model38a)
+
+#Addition of term seems significant
+model39a<-update(model38a, ~.+M3:W)
+anova(model38a, model39a)
+summary(model39a)
+
+model40a<-update(model39a, ~.+M2:M3)
+anova(model39a, model40a)
+summary(model40a)
+
+model41a<-update(model39a, ~.+M1:M2:M3:M4)
+anova(model39a, model41a)
+summary(model41a)
+
+model42a<-update(model39a, ~.+M2:M3:M4:W)
+anova(model39a, model42a)
+summary(model42a)
+
+model43a<-update(model39a, ~.+M1:M4:W)
+anova(model39a, model43a)
+summary(model43a)
+
+model43a<-update(model39a, ~.+M2:M3:M4)
+anova(model39a, model43a)
+summary(model43a)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch B~~~~~~~~~~~~~~~~~~~~~~~
+
+model18b<-update(model17, ~.-I(M4^2))
+anova(model17, model18b)
+summary(model18b)
+
+anova(model18a, model18b)
+
+par(mfrow=c(2,2))  # display 4 plots  in 2 rows, 2  columns
+plot(model18b)
+
+model19b<-update(model18b, ~.-I(M3^2))
+anova(model18b, model19b)
+summary(model19b)
+
+model20b<-update(model19b, ~.-M2:M4)
+anova(model19b, model20b)
+summary(model20b)
+
+model21b<-update(model20b, ~.-M3:M4)
+anova(model20b, model21b)
+summary(model21b)
+
+model22b<-update(model21b, ~.-M1:M3)
+anova(model21b, model22b)
+summary(model22b)
+
+model23b<-update(model22b, ~.-I(M1^2))
+anova(model22b, model23b)
+summary(model23b)
+
+model24b<-update(model23b, ~.-I(M2^2))
+anova(model23b, model24b)
+summary(model24b)
+
+#testing step here
+model25bb<-step(model24b)
+anova(model25bb, model24b)
+summary(model25bb)
+
+
+#decrease in adjusted RS
+model25b<-update(model24b, ~.-M1:M4)
+anova(model24b, model25b)
+summary(model25b)
+
+#decrease in adjusted RS
+model26b<-update(model25b, ~.-M3:W)
+anova(model25b, model26b)
+summary(model26b)
+
+#decrease in adjusted RS
+model27b<-update(model26b, ~.-M2:M3)
+anova(model26b, model27b)
+summary(model27b)
+#Conclusion: Terms are significant, but model is highly non-normal
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch C~~~~~~~~~~~~~~~~~~~~~~~
+
+model18c<-step(model17)
+anova(model17, model18c)
+summary(model18c)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch D~~~~~~~~~~~~~~~~~~~~~~~
+#Method: Do not remove anything that decreases adjusted RS
+
+model5d<-update(model4, ~.-M2:M3:M4)
+anova(model5d,model4)
+summary(model5d)
+
+model6d<-update(model5d, ~.-M3:W)
+anova(model5d, model6d)
+summary(model6d)
+
+model7d<-update(model6d, ~.-I(M2^2))
+anova(model6d, model7d)
+summary(model7d)
+
+model8d<-update(model7d, ~.-M2:W)
+anova(model7d, model8d)
+summary(model8d)
+
+model9d<-update(model8d, ~.-I(M3^2))
+anova(model8d, model9d)
+summary(model9d)
+
+#Highest known adjusted RS
+model10d<-step(model9d)
+anova(model9d,model10d)
+summary(model10d)
+
+model11d<-update(model10d, ~.-M2:M3:M4:W)
+anova(model10d, model11d)
+summary(model11d)
+
+model12d<-update(model11d, ~.-M2:M4:W)
+summary(model12d)
+
+model13d<-update(model12d, ~.-M1:M3:W)
+summary(model13d)
+
+model14d<-update(model13d, ~.-M1:M2:M4)
+summary(model14d)
+
+model15d<-update(model14d, ~.-M1:M3:M4)
+summary(model15d)
+
+model16d<-update(model15d, ~.-M4:W)
+summary(model16d)
+
+model17d<-update(model16d, ~.-M1:M4)
+summary(model17d)
+
+model18d<-update(model17d, ~.-M1:M3)
+summary(model18d)
+
+model19d<-update(model18d, ~.-M1:M2)
+summary(model19d)
+
+model20d<-update(model19d, ~.-I(M4^2))
+summary(model20d)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch E~~~~~~~~~~~~~~~~~~~~~~~
+library(rpart)
+library(rpart.plot)
+treeModel<-rpart(M~M1+M2+M3+M4+W, data=mooseData1)
+summary(treeModel)
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch F~~~~~~~~~~~~~~~~~~~~~~~
+#Advancing model simplification through maximizing accuracy
+model8f<-update(model7, ~.-M1:M2:M3)
+summary(model8f)
+evaluateModel(model8f)
+model9f<-update(model8f, ~.-M1:M3:M4)
+summary(model9f)
+evaluateModel(model9f)
+model10f<-update(model9f, ~.-M1:M2:M4)
+summary(model10f)
+evaluateModel(model10f)
+model11f<-update(model10f, ~.-M2:M3:W)
+summary(model11f)
+evaluateModel(model11f)
+model12f<-update(model11f, ~.-M1:M4:W)
+summary(model12f)
+evaluateModel(model12f)
+model13f<-update(model12f, ~.-M1:M2:W)
+summary(model13f)
+evaluateModel(model13f) #Wow! Huge improvement removing a near significant term
+#Moving to 2-terms since all 4 3 terms positively impact accuracy
+model14f<-update(model13f, ~.-M1:M2)
+summary(model14f)
+evaluateModel(model14f)
+model15f<-update(model14f, ~.-M4:W)
+#summary(model15f)
+evaluateModel(model15f)
+model16f<-update(model15f, ~.-M3:W)
+summary(model16f)
+evaluateModel(model16f)
+model17f<-update(model16f, ~.-M3:M4)
+summary(model17f)
+evaluateModel(model17f)
+#Removal of terms negatively impacts accuacy now
+summary(model1)
+model18f<-update(model17f, ~.+M2:M3:W)
+summary(model18f)
+evaluateModel(model18f)
+model19f<-update(model18f, ~.+M1:M2:M4:W)
+summary(model19f)
+evaluateModel(model19f)
+#Addition of terms negatively impacts accuracy
+model20f<-update(model19f, ~.-M2:M3:W)
+summary(model20f)
+evaluateModel(model20f)
+model21f<-step(model20f)
+summary(model21f)
+evaluateModel(model21f)
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~~~~~~~~Branch G~~~~~~~~~~~~~~~~~~~~~~~
+#From branch f, point 21 was identified as an outlier.
+model8g<-lm(model7$call, mooseData1, c(1:20,22:nrow(mooseData1)))
+evaluateModel(model8g)
+summary(model8g)
+model9g<-update(model8g, ~.-M3:M4:W)
+evaluateModel(model9g)
+model10g<-update(model9g, ~.-M1:M3:W)
+evaluateModel(model10g)
+model11g<-update(model10g, ~.-M1:M2:W)
+evaluateModel(model11g)
+model12g<-update(model11g, ~.-M1:M3:M4)
+evaluateModel(model12g)
+model13g<-update(model12g, ~.-M4:W)
+evaluateModel(model13g)
+model14g<-update(model13g, ~.-M2:W)
+evaluateModel(model14g)
+model15g<-update(model14g, ~.-M2:M4)
+evaluateModel(model15g)
+model16g<-update(model15g, ~.-M1:M3)
+evaluateModel(model16g)
+model17g<-update(model16g, ~.-I(M4^2))
+evaluateModel(model17g)
+model18g<-update(model17g, ~.-M2)
+evaluateModel(model18g)
+model19g<-update(model18g, ~.-M1)
+evaluateModel(model19g)
+#Removing values does not increase accuracy
+summary(model19g)
+model20g<-update(model19g, ~.+M1:M2:M3:M4)
+evaluateModel(model20g)
+model21g<-update(model20g, ~.+I(M4^2))
+evaluateModel(model21g)
+summary(model21g)
+#Adding values does not increase accuracy
+model22g<-update(model21g, ~.-M4:M1:M2)
+evaluateModel(model22g)
+#removing values does not increase accuracy
+summary(model22g)
+model23g<-update(model22g, ~.+M1:M3:M4)
+evaluateModel(model23g)
+model24g<-update(model23g, ~.+M1:M3:W)
+evaluateModel(model24g)
+#adding values does not increase accuracy
+summary(model24g)
+model25g<-update(model24g, ~.-I(M4^2))
+evaluateModel(model25g)
+model26g<-update(model25g, ~.-I(M2^2))
+evaluateModel(model26g)
+model27g<-update(model26g, ~.-I(M1^2))
+evaluateModel(model27g)
+summary(model27g) #most accurate predicting model
+#removing and adding values does not increase accuracy
+model28g<-step(model27g)
+evaluateModel(model28g) #stepped
+#adding base values and trying step from 27g
+model29g<-update(model27g,~.+M1+M2)
+model30g<-step(model29g)
+evaluateModel(model30g) #highly inaccurate
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~Comparisons Between Branches~~~~~~~~~~~~~~~~
+par(mfrow=c(4,4))
+#Looking at first 4
+plot(model1, main = "Starting Model") #Starting point
+plot(model31a, main = "Best Branch A") #Best branch A
+#plot(model25bb) #Best branch B -- This is identical to branch C
+plot(model27b, main = "Best Branch B") #Best branch B
+plot(model18c, main = "Best Branch C") #Best Branch C
+evaluateModel(model1)
+evaluateModel(model31a)
+evaluateModel(model27b)
+evaluateModel(model18c)
+#Branch c and a looked most promising
+par(mfrow=c(2,2))
+plot(model31a, main = "Best Branch A") #Best branch A
+plot(model18c, main = "Best Branch C") #Best Branch C
+plot(model10d, main = "Highest Adjusted R^2 Branch D") #Highest ARS branch D
+plot(model20d, main = "Best Branch D") #End branch D
+evaluateModel(model31a)
+evaluateModel(model18c)
+evaluateModel(model10d)
+evaluateModel(model20d)
+#Branches 10d and 18c appear to not be as good as 31a and 20d
+plot(model31a, main = "Best Branch A") #Best branch A
+plot(model20d, main = "Best Branch D") #End branch D
+plot(model21f, main = "Best Branch F") #2nd most accurate model
+evaluateModel(model31a)
+evaluateModel(model20d)
+evaluateModel(model24f)
+evaluateModel(model25f)
+plot(model27g, main="Best Branch G") #most accurate model
+evaluateModel(model27g)
+par(mfrow = c(1, 1)) #return plot layout to default
+rpart.plot(treeModel, main="Recursive Tree Model") #best branch E
+par(mfrow=c(4,4))
+
+
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#~~~~~~~~~~~~~~~~~~Accuracy of Models~~~~~~~~~~~~~~~~~~~~
+
+evaluateModel(model)
+evaluateModel(model1)
+evaluateModel(model31a)
+evaluateModel(model27b)
+evaluateModel(model18c)
+evaluateModel(model10d)
+evaluateModel(model20d)
+evaluateModel(model24f)
+evaluateModel(model25f)
+evaluateModel(treeModel)
